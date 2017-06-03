@@ -1,0 +1,263 @@
+<html>
+
+<head>
+	<style>
+	.constrained {
+    height:300px;
+    overflow-y:scroll;
+}
+</style>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+		<!-- Latest compiled and minified CSS -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+	<!-- Optional theme -->
+
+
+	<!-- Latest compiled and minified JavaScript -->
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+	<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+	<link rel="stylesheet" href="profilesStyle.css">
+
+  <script type="text/javascript">
+
+  function getCookie(cname) {
+    var name = cname + "=";
+    var ca = document.cookie.split(';');
+    for(var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') {
+            c = c.substring(1);
+        }
+        if (c.indexOf(name) == 0) {
+            return c.substring(name.length, c.length);
+        }
+    }
+    return "";
+}
+
+    var steamIds = [];
+    var leagueIds = [];
+
+
+    function LoadProfiles() {
+
+          $.ajax({
+              type: 'post',
+            url: '/getProfiles.php',
+            format: 'json',
+            data: {user: getCookie('username')},
+            success: function(data) {
+              data = JSON.parse(data);
+              console.log(data);
+              if(getCookie('game') == 'lol') {
+                for(var i = 0; i < data.length; i++) {
+                  var leagueId = data[i].lol_link;
+                  leagueIds.push(leagueId);
+                }
+                localStorage.setItem("ids", JSON.stringify(leagueIds));
+                loadAnother();
+              }
+            },
+            failure: function() {
+               console.log('12321412321');
+            }
+         });
+
+
+    }
+
+    // Later, somewhere else, it's now much cleaner to do a cross-origin request
+
+    var leagueRealId = '';
+
+
+    function loadAnother() {
+
+        var ids = JSON.parse(localStorage.getItem("ids"));   
+        var random = Math.floor((Math.random() * ids.length - 1) + 1);
+        console.log(ids[random]);
+        if(leagueIds.length > 0) {
+           $.ajax({
+              url: 'https://na.api.pvp.net/api/lol/na/v1.4/summoner/by-name/' +  ids[random] + '?api_key=RGAPI-151b7b41-82ec-478d-b327-c9d725c58cae',
+              type: 'get',
+              format: 'jsonp',
+              success: function(data) {
+                data = JSON.parse(JSON.stringify(data));
+                var username = ids[random];
+                var temp = [];
+                for(var i = 1; i < ids.length; i++) {
+
+                  temp.push(ids[i]);
+                }
+                ids = temp;
+                
+                //console.log(data);
+                localStorage.setItem("id", data[username.toLowerCase()].id);
+             },
+             failure: function() {
+                console.log('12321412321');
+             }
+          }); 
+
+          $.ajax({
+              url: 'https://na.api.pvp.net/api/lol/na/v1.3/stats/by-summoner/' +  localStorage.getItem("id") + '/ranked?season=SEASON2015&api_key=RGAPI-151b7b41-82ec-478d-b327-c9d725c58cae',
+              type: 'get',
+              format: 'jsonp',
+              success: function(data) {
+                data = JSON.parse(JSON.stringify(data));
+                console.log(data);
+                var totalMatchesWon = 0;
+                var totalMatchesPlayed = 0;
+                var totalKills = 0;
+                var totalDeaths = 0;
+                var totalMinionKills = 0;
+                //console.log(data.champions.length);
+                for(var i = 0; i < data.champions.length; i++) {
+                  totalMatchesWon += data.champions[i].stats.totalSessionsWon;
+                  totalMatchesPlayed += data.champions[i].stats.totalSessionsPlayed;
+                  totalKills += data.champions[i].stats.maxChampionsKilled;
+                  totalDeaths += data.champions[i].stats.maxNumDeaths;
+                  totalMinionKills += data.champions[i].stats.totalMinionKills;
+                }
+                var winLoss = eval(totalMatchesWon/totalMatchesPlayed);
+                var killDeath = eval(totalKills/totalDeaths);
+                var avgMinKills = eval(totalMinionKills/data.champions.length);
+                document.getElementById("win-loss").innerHTML = Math.round(winLoss * 100) / 100;;
+                document.getElementById("avg-k-d").innerHTML = Math.round(killDeath * 100) / 100;;
+                document.getElementById("creep-score").innerHTML = Math.round(avgMinKills * 100) / 100;
+             },
+             failure: function() {
+                console.log('12321412321');
+             }
+          }); 
+
+          $.ajax({
+              url: 'https://na.api.pvp.net/api/lol/na/v2.5/league/by-summoner/' +  localStorage.getItem("id") + '?api_key=RGAPI-70fd7dc3-b21d-42fb-800b-a0256abf3f29',
+              type: 'get',
+              format: 'jsonp',
+              success: function(data) {
+                data = JSON.parse(JSON.stringify(data));
+                for (var e in data) {
+                  var playerRank = data[e][0].tier;
+                  console.log(playerRank);
+                  if(playerRank == 'CHALLENGER') {
+                    document.getElementById("rank-picture").src = "./LoL/7.png"
+                  }
+                  if(playerRank == 'MASTER') {
+                    document.getElementById("rank-picture").src = "./LoL/7.png"
+                  }
+                  if(playerRank == 'DIAMOND') {
+                    document.getElementById("rank-picture").src = "./LoL/3.png"
+                  }
+                  if(playerRank == 'PLATINUM') {
+                    document.getElementById("rank-picture").src = "./LoL/4.png"
+                  }
+                  if(playerRank == 'GOLD') {
+                    document.getElementById("rank-picture").src = "./LoL/5.png"
+                  }                  
+                  if(playerRank == 'SILVER') {
+                    document.getElementById("rank-picture").src = "./LoL/6.png"
+                  }
+                  if(playerRank == 'BRONZE') {
+                    document.getElementById("rank-picture").src = "./LoL/7.png"
+                  } 
+
+                }
+              },
+             failure: function() {
+                console.log('12321412321');
+             }
+          }); 
+
+
+        }
+
+    }
+
+    function swapOut() {
+      document.getElementById("swiper").className = "rotate-hover";
+
+      loadAnother();
+
+      setTimeout(function() {
+            document.getElementById('swiper').className = 'rotate';
+        }, (1000));
+    }
+
+    window.onload = function() {
+
+      LoadProfiles();
+
+
+
+    }
+  </script>
+
+  <link rel="stylesheet" type="text/css" href="styles.css">
+  <link rel="stylesheet" href="normalize.css">
+  <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+    <div id="swiper" class="rotate">
+<img src="profilepic.png" alt="Clash Match Logo" id="profilepic" style="width:20%;height:20%;">
+
+    <div class="col-sm-6 col-md-4 size-info">
+      <div class="thumbnail">
+        <div class="caption">
+          <h3>Primary Stats</h3>
+          <table>
+            <tr>
+              <td><p><b>Win/Loss Ratio:&emsp;<t></b></p></td><td><p id="win-loss">.50</p></td>
+            </tr>
+            <tr>
+              <td><p><b>AAverage Kill/Death Ratio:&emsp;</b></p></td><td><p id="avg-k-d">.50</p></td>
+            </tr>
+            <tr>
+              <td><p><b>Creep Score:&emsp;</b></p></td><td><p id="creep-score">.50</p></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+      <div class="col-sm-6 col-md-4 size-info">
+        <div class="thumbnail">
+          <div class="caption">
+            <img id="rank-picture" src=""></img>
+            <h3>Current Rank</h3>
+          </div>
+        </div>
+      </div>
+
+
+        <div class="col-sm-6 col-md-4 size-info">
+          <div class="thumbnail">
+            <div class="caption">
+              <h3>Recent Games</h3>
+              <p>...</p>
+            </div>
+          </div>
+      </div>
+    </div>
+
+    <table id="tbl" align="center" cellspacing="100">
+        <tr>
+            <td><a href="join.html""><h1 id="no">NO</h1></a></td>
+
+            <td><a href="host.html"><h1 id="find">CLASH</h1></a></td>
+        </tr>
+    </table>
+
+    <div id="link"><a href="profile.html" style="margin-left: 47%;">Profile</a></div>
+
+    <div id="link"><a href="index.html" style="margin-left: 47%;">Log Out</a></div>
+
+    <!-- <button onclick="swapOut()" type="button" class="btn btn-danger">Action</button> -->
+
+</body>
+</html>
